@@ -1,6 +1,8 @@
 import sys
 import csv
 import os
+from webpage import Webpage
+
 
 def main():
   # arg count check
@@ -19,5 +21,18 @@ def main():
     os.makedirs(output_directory)
     print(f"Created directory: {output_directory}")
   
+  webpages_arr = []
+  # reading the csv
+  with open(csv_file_path, 'r', encoding='utf-8') as f:
+    headers = ['title', 'url', 'date']
+    reader = csv.DictReader(f, delimiter='|', fieldnames=headers)
+
+    for line in reader:
+      webpage = Webpage(line['title'], line['url'], line['date'])
+      webpages_arr.append(webpage)
+    
+    
+
+
 if __name__ == "__main__":
     main()

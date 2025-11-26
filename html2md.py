@@ -1,8 +1,9 @@
 import sys
 import csv
 import os
+from bs4 import BeautifulSoup
 from webpage import Webpage
-
+import converter
 
 def main():
   # arg count check
@@ -31,7 +32,24 @@ def main():
       webpage = Webpage(line['title'], line['url'], line['date'])
       webpages_arr.append(webpage)
     
+  
+  for page in webpages_arr:
+    # check the date scheduled <= today's date
+    if not page.should_download():
+      print(f"[Skipping] {page.title} (Scheduled for Future Date)")
+      continue
+
+    print(f"[Processing] {page.title}")
+    # download raw HTML
+    raw_html = page.get_html()
+    if not raw_html:
+      print("Failed to download HTML.")
+      continue
+
     
+
+
+
 
 
 if __name__ == "__main__":

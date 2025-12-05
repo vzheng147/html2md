@@ -1,9 +1,39 @@
 import sys
 import csv
 import os
+import re
+import tarfile
+import shutil
+import json
+from datetime import datetime
 from bs4 import BeautifulSoup
 from webpage import Webpage
 import converter
+
+def clean_html(raw_html):
+  soup = BeautifulSoup(raw_html, 'html.parser')
+  content = soup.find('div', {'class': 'mw-parser-output'})
+
+  if not content:
+    print("Error: HTML page with no main article content.", file=sys.stderr)
+    return ""
+
+  unwanted_selectors = [
+    'table', 'div.navbox', 'div.hatnote', 'style', 'script', 'figure', 'img',
+    'span.mw-editsection', 'sup.reference', 'div.reflist','div.printfooter',      
+    'div.toc', 'div#toc'               
+  ]
+
+  # delete all unwanted tags and their nested structure
+  for selector in unwanted_selectors:
+    for tag in content.select(selector):
+      tag.decompose()
+  
+  return content
+
+def sanitize_filename(title):
+    s = title.lower().replace(' ', '_')
+    return re.sub(r'[^a-z0-9_]', '', s) + ".md"
 
 def main():
   # arg count check
@@ -32,7 +62,15 @@ def main():
       webpage = Webpage(line['title'], line['url'], line['date'])
       webpages_arr.append(webpage)
     
-  
+  # temporary directory for processing compression
+  temp_dir = os.path.join(output_directory, "temp_processing")
+  if os.path.exists(temp_dir):
+    shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir)
+
+  processed_files = []
+  url_map = {}
+
   for page in webpages_arr:
     # check the date scheduled <= today's date
     if not page.should_download():
@@ -45,12 +83,46 @@ def main():
     if not raw_html:
       print("Failed to download HTML.")
       continue
-
     
+    # parse and clean, keep only elements we want (BeautifulSoup)
+    html = clean_html(raw_html)
+    if not html:
+      return
+    
+    # convert to markdown
+    markdown_output = converter.convert_soup(html)
+    filename = sanitize_filename(page.title)
+    output_path = os.path.join(temp_dir, filename)
 
+    with open(output_path, 'w', encoding='utf-8') as md_file:
+      md_file.write(markdown_output)
+    
+    processed_files.append(filename)
+    # metadata for diffcheck
+    url_map[filename] = {"title": page.title, "url": page.url}
 
+  # archive
+  if processed_files:
+    # add the json.map file to the temporary directory
+    with open(os.path.join(temp_dir, "mapping.json"), "w") as f:
+      json.dump(url_map, f)
 
+    # create the archive name
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    archive_name = f"{timestamp}.tar.gz"
+    archive_path = os.path.join(output_directory, archive_name)
 
+    # adding individual files to the archive 
+    with tarfile.open(archive_path, "w:gz") as tar:
+      for file_name in processed_files:
+        tar.add(os.path.join(temp_dir, file_name), arcname=file_name)
+      # Add the mapping file
+      tar.add(os.path.join(temp_dir, "mapping.json"), arcname="mapping.json")  
+      print(f"Created archive: {archive_path}")
+
+  # cleanup the temporary directory
+  if os.path.exists(temp_dir):
+    shutil.rmtree(temp_dir)
 
 if __name__ == "__main__":
     main()

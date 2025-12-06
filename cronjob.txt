@@ -1,0 +1,1 @@
+30 3 * * * /Users/leonfired/Desktop/html2md/html2md.py /Users/leonfired/Desktop/html2md/in.csv /Users/leonfired/Desktop/html2md/output >> /Users/leonfired/Desktop/html2md/downloads.log 2>&1

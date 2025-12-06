@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import csv
 import os
@@ -87,7 +88,7 @@ def main():
     # parse and clean, keep only elements we want (BeautifulSoup)
     html = clean_html(raw_html)
     if not html:
-      return
+      continue
     
     # convert to markdown
     markdown_output = converter.convert_soup(html)
